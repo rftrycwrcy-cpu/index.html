@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Rainha Rubra</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0005;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+  }
+  #gameContainer {
+    position: relative;
+    width: 900px;
+    height: 560px;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+  }
+  #ui {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  #hud {
+    position: absolute;
+    top: 12px; left: 16px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .insect-slot {
+    width: 32px; height: 32px;
+    border: 2px solid #8b1a1a;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: rgba(0,0,0,0.5);
+    opacity: 0.3;
+    transition: opacity 0.3s, border-color 0.3s;
+  }
+  .insect-slot.found {
+    opacity: 1;
+    border-color: #ff6633;
+    box-shadow: 0 0 8px #ff6633aa;
+  }
+  .insect-slot.active {
+    border-color: #00ffdd;
+    box-shadow: 0 0 12px #00ffddaa;
+    background: rgba(0,255,200,0.1);
+  }
+  #collectibles {
+    position: absolute;
+    top: 12px; right: 16px;
+    color: #ff9966;
+    font-size: 13px;
+    text-shadow: 0 0 8px #ff6600;
+  }
+  #message {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    border: 1px solid #8b1a1a;
+    color: #ffccaa;
+    padding: 8px 18px;
+    font-size: 13px;
+    border-radius: 3px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.4s;
+    max-width: 400px;
+    pointer-events: none;
+  }
+  #controls {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #5a3344;
+    font-size: 10px;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+  #bossHPBar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    display: none;
+  }
+  #bossHPLabel {
+    color: #ff3333;
+    font-size: 11px;
+    text-align: center;
+    letter-spacing: 2px;
+    text-shadow: 0 0 8px #ff0000;
+    margin-bottom: 3px;
+  }
+  #bossHPOuter {
+    width: 100%; height: 10px;
+    background: #1a0000;
+    border: 1px solid #8b0000;
+  }
+  #bossHPInner {
+    height: 100%;
+    background: linear-gradient(90deg, #cc0000, #ff3300);
+    transition: width 0.2s;
+    box-shadow: 0 0 6px #ff0000;
+  }
+  #titleScreen {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #0a0005;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  #titleScreen h1 {
+    font-size: 42px;
+    color: #cc2200;
+    text-shadow: 0 0 20px #ff3300, 0 0 40px #660000;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  #titleScreen .subtitle {
+    color: #8b4444;
+    font-size: 13px;
+    letter-spacing: 6px;
+    margin-bottom: 40px;
+  }
+  #titleScreen .startBtn {
+    color: #00ffdd;
+    font-size: 14px;
+    letter-spacing: 3px;
+    animation: blink 1.2s ease-in-out infinite;
+    text-shadow: 0 0 10px #00ffdd;
+  }
+  @keyframes pulse {
+    0%,100% { text-shadow: 0 0 20px #ff3300, 0 0 40px #660000; }
+    50% { text-shadow: 0 0 30px #ff5500, 0 0 60px #aa2200, 0 0 80px #440000; }
+  }
+  @keyframes blink {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  #titleBg { position: absolute; top:0;left:0;width:100%;height:100%; }
+  #deathScreen, #winScreen {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  #deathScreen h2 { color: #cc2200; font-size: 32px; letter-spacing: 3px; margin-bottom: 12px; }
+  #deathScreen p { color: #886666; font-size: 13px; letter-spacing: 2px; }
+  #winScreen h2 { color: #00ffdd; font-size: 28px; letter-spacing: 3px; margin-bottom: 12px; text-shadow: 0 0 20px #00ffdd; }
+  #winScreen p { color: #aaffee; font-size: 13px; letter-spacing: 1px; max-width: 500px; text-align: center; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="gameCanvas" width="900" height="560"></canvas>
+  <div id="ui">
+    <div id="hud">
+      <div class="insect-slot" id="slot-beetle" title="Besouro Pesado">🪲</div>
+      <div class="insect-slot" id="slot-larva" title="Larva Luminosa">🐛</div>
+      <div class="insect-slot" id="slot-spider" title="Aranha da Teia">🕷️</div>
+      <div class="insect-slot" id="slot-glow" title="Vaga-lume">✨</div>
+    </div>
+    <div id="collectibles">◆ <span id="collectCount">0</span> / 8</div>
+    <div id="bossHPBar">
+      <div id="bossHPLabel">A RAINHA RUBRA</div>
+      <div id="bossHPOuter"><div id="bossHPInner" style="width:100%"></div></div>
+    </div>
+    <div id="message"></div>
+    <div id="controls">← → MOVER &nbsp;|&nbsp; ESPAÇO / ↑ PULAR &nbsp;|&nbsp; Z USAR INSETO &nbsp;|&nbsp; 1-4 TROCAR INSETO</div>
+  </div>
+  <div id="titleScreen">
+    <canvas id="titleBg" width="900" height="560"></canvas>
+    <h1>A RAINHA RUBRA</h1>
+    <div class="subtitle">um mundo vivo te observa</div>
+    <div class="startBtn">[ CLIQUE PARA COMEÇAR ]</div>
+  </div>
+  <div id="deathScreen">
+    <h2>VOCÊ SUCUMBIU</h2>
+    <p>o organismo continua pulsando...</p>
+    <p style="margin-top:20px;color:#664444;font-size:11px;">[CLIQUE PARA TENTAR NOVAMENTE]</p>
+  </div>
+  <div id="winScreen">
+    <h2>OS TENTÁCULOS PARAM</h2>
+    <p>A coloração rubra desvanece lentamente.<br>Pequenas criaturas insetoides caminham livres pelo silêncio.<br><br>O que era a Rainha agora é apenas memória orgânica.<br>E você... você ainda é apenas um cubo.<br><br><em style="color:#667788">O que aconteceu aqui ficará aberto para sempre.</em></p>
+    <p style="margin-top:20px;color:#446655;font-size:11px;">[CLIQUE PARA JOGAR NOVAMENTE]</p>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = 900, H = 560;
+
+const ZONE_W = 2400;
+const WORLD_W = ZONE_W * 3;
+
+const C = {
+  bg0: '#0a0002', bg1: '#1a0008',
+  wall: '#3d0010', wallDark: '#220008', wallLight: '#6b1a20',
+  floor: '#4a0015',
+  cian: '#00e8cc', cianDark: '#00a090',
+  red: '#cc2200', redBright: '#ff4400',
+  orange: '#cc5500', orangeLight: '#ff9944',
+  tentacle: '#7a0020', pulse: '#aa1130',
+  lava: '#ff3300',
+};
+
+let gameState = 'title';
+let camera = { x: 0, y: 0 };
+let collectCount = 0;
+let msgTimer = 0;
+let frameCount = 0;
+
+let player = {
+  x: 120, y: 400, w: 22, h: 22,
+  vx: 0, vy: 0,
+  onGround: false, jumpsLeft: 2,
+  facingRight: true,
+  anim: 0,
+  squishX: 1, squishY: 1,
+  activeInsect: 0,
+  insects: [false, false, false, false],
+  glowActive: false, glowTimer: 0,
+  spiderActive: false, spiderTimer: 0,
+  beetleActive: false,
+  hp: 3, maxHp: 3,
+  invincible: 0,
+  dead: false,
+};
+
+let platforms = [];
+let hazards = [];
+let insects = [];
+let collectibles = [];
+let buttons = [];
+let doors = [];
+let webs = [];
+let tentacles = [];
+let particles = [];
+
+function buildWorld() {
+  platforms = [];
+  hazards = [];
+  insects = [];
+  collectibles = [];
+  buttons = [];
+  doors = [];
+  webs = [];
+  tentacles = [];
+
+  const z1 = [
+    {x:0,y:500,w:600,h:30,type:'solid'},
+    {x:700,y:500,w:500,h:30,type:'solid'},
+    {x:1300,y:500,w:300,h:30,type:'solid'},
+    {x:1700,y:500,w:700,h:30,type:'solid'},
+    {x:150,y:420,w:100,h:14,type:'solid'},
+    {x:350,y:360,w:80,h:14,type:'solid'},
+    {x:500,y:300,w:120,h:14,type:'solid'},
+    {x:700,y:430,w:90,h:14,type:'solid'},
+    {x:850,y:360,w:110,h:14,type:'solid'},
+    {x:1000,y:290,w:80,h:14,type:'solid'},
+    {x:1100,y:380,w:100,h:14,type:'solid'},
+    {x:1350,y:430,w:80,h:14,type:'solid'},
+    {x:1450,y:350,w:100,h:14,type:'solid'},
+    {x:1580,y:420,w:90,h:14,type:'solid'},
+    {x:1800,y:450,w:120,h:14,type:'solid'},
+    {x:1950,y:370,w:80,h:14,type:'solid'},
+    {x:2100,y:310,w:120,h:14,type:'solid'},
+    {x:2250,y:380,w:80,h:14,type:'solid'},
+    {x:0,y:0,w:WORLD_W,h:20,type:'solid'},
+    {x:0,y:0,w:20,h:H+100,type:'solid'},
+    {x:WORLD_W-20,y:0,w:20,h:H+100,type:'solid'},
+    {x:600,y:380,w:20,h:120,type:'solid'},
+    {x:1200,y:380,w:20,h:120,type:'solid'},
+    {x:1680,y:360,w:20,h:140,type:'solid'},
+    {x:2350,y:440,w:80,h:14,type:'solid'},
+  ];
+
+  const z2 = [
+    {x:2400,y:500,w:400,h:30,type:'solid'},
+    {x:2900,y:500,w:500,h:30,type:'solid'},
+    {x:3500,y:500,w:400,h:30,type:'solid'},
+    {x:4000,y:500,w:500,h:30,type:'solid'},
+    {x:2420,y:430,w:90,h:14,type:'solid'},
+    {x:2600,y:370,w:80,h:14,type:'solid'},
+    {x:2750,y:300,w:100,h:14,type:'solid'},
+    {x:2900,y:420,w:110,h:14,type:'solid'},
+    {x:3080,y:350,w:90,h:14,type:'solid'},
+    {x:3200,y:280,w:80,h:14,type:'solid'},
+    {x:3400,y:380,w:100,h:14,type:'solid'},
+    {x:3560,y:440,w:80,h:14,type:'solid'},
+    {x:3700,y:360,w:90,h:14,type:'solid'},
+    {x:3850,y:290,w:100,h:14,type:'solid'},
+    {x:4050,y:400,w:110,h:14,type:'solid'},
+    {x:4200,y:320,w:80,h:14,type:'solid'},
+    {x:4350,y:390,w:90,h:14,type:'solid'},
+    {x:2400,y:0,w:20,h:H+100,type:'solid'},
+  ];
+
+  const z3 = [
+    {x:4800,y:500,w:500,h:30,type:'solid'},
+    {x:5400,y:500,w:400,h:30,type:'solid'},
+    {x:5900,y:500,w:400,h:30,type:'solid'},
+    {x:6400,y:500,w:800,h:30,type:'solid'},
+    {x:4850,y:420,w:100,h:14,type:'solid'},
+    {x:5000,y:350,w:80,h:14,type:'solid'},
+    {x:5150,y:280,w:100,h:14,type:'solid'},
+    {x:5350,y:380,w:80,h:14,type:'solid'},
+    {x:5500,y:440,w:90,h:14,type:'solid'},
+    {x:5650,y:360,w:100,h:14,type:'solid'},
+    {x:5800,y:290,w:80,h:14,type:'solid'},
+    {x:6000,y:400,w:100,h:14,type:'solid'},
+    {x:6150,y:330,w:80,h:14,type:'solid'},
+    {x:6400,y:480,w:800,h:50,type:'solid'},
+    {x:6400,y:0,w:20,h:H,type:'solid'},
+    {x:7180,y:0,w:20,h:H,type:'solid'},
+  ];
+
+  platforms = [...z1, ...z2, ...z3];
+
+  const spikes = [
+    {x:650,y:490,w:40,h:10},{x:1260,y:490,w:40,h:10},
+    {x:1640,y:490,w:30,h:10},{x:2870,y:490,w:40,h:10},
+    {x:3470,y:490,w:30,h:10},{x:5370,y:490,w:30,h:10},
+    {x:5890,y:490,w:30,h:10},
+  ];
+  hazards = spikes.map(s => ({...s, type:'spike'}));
+
+  insects = [
+    {x:540, y:265, type:0, label:'BESOURO PESADO', desc:'Pressione Z sobre botões para ativá-lo', found:false, id:'beetle'},
+    {x:2780, y:265, type:1, label:'LARVA LUMINOSA', desc:'Ilumina trevas e afasta plantas. Z para usar', found:false, id:'larva'},
+    {x:5180, y:245, type:2, label:'ARANHA DA TEIA', desc:'Cria pontes temporárias de teia. Z sobre abismos', found:false, id:'spider'},
+    {x:3870, y:255, type:3, label:'VAGA-LUME', desc:'Ativa mecanismos orgânicos. Z perto deles', found:false, id:'glow'},
+  ];
+
+  collectibles = [
+    {x:380,y:340,found:false,text:'Gravado na parede: "ela acordou quando a colmeia dormia"'},
+    {x:1010,y:260,found:false,text:'Um casulo vazio. Algo enorme nasceu aqui'},
+    {x:1480,y:320,found:false,text:'Símbolos antigos: "a rainha alimenta. a rainha consome."'},
+    {x:2630,y:345,found:false,text:'Ossos de uma criatura que tentou escapar'},
+    {x:3220,y:255,found:false,text:'"O núcleo pulsa. Não olhe muito tempo."'},
+    {x:4390,y:365,found:false,text:'Marcas de garras — alguém passou aqui antes de você'},
+    {x:5010,y:320,found:false,text:'"Se chegares ao coração, não vás com ódio."'},
+    {x:6200,y:300,found:false,text:'A entrada para o coração. Ela te espera.'},
+  ];
+
+  buttons = [
+    {x:1100, y:360, w:20, h:10, pressed:false, doorId:0},
+    {x:3400, y:360, w:20, h:10, pressed:false, doorId:1},
+    {x:5800, y:270, w:20, h:10, pressed:false, doorId:2},
+  ];
+
+  doors = [
+    {x:1220, y:390, w:20, h:120, open:false, id:0},
+    {x:3520, y:390, w:20, h:120, open:false, id:1},
+    {x:5920, y:200, w:20, h:120, open:false, id:2},
+  ];
+
+  buttons.push({x:4060, y:382, w:20, h:10, pressed:false, doorId:3, type:'organic'});
+  doors.push({x:4180, y:300, w:20, h:120, open:false, id:3});
+
+  for(let i=0;i<80;i++){
+    tentacles.push({
+      x: Math.random() * WORLD_W,
+      y: Math.random() < 0.5 ? 20 : 490 + Math.random()*20,
+      len: 30 + Math.random()*80,
+      phase: Math.random()*Math.PI*2,
+      speed: 0.02 + Math.random()*0.03,
+      fromCeil: Math.random() < 0.5,
+      thickness: 2 + Math.random()*4,
+    });
+  }
+}
+
+let boss = {
+  active: false,
+  x: 6780, y: 60, w: 320, h: 280,
+  hp: 120, maxHp: 120,
+  phase: 1,
+  phaseHp: [120, 80, 40, 15],
+  tentacles: [],
+  orbs: [],
+  spawnTimer: 0,
+  attackTimer: 0,
+  eyePhase: 0,
+  eyeCount: 2,
+  defeated: false,
+  shakeTimer: 0,
+  vulnerable: false,
+  vulnerableTimer: 0,
+  deadAnim: 0,
+};
+
+function initBoss() {
+  boss.active = true;
+  boss.hp = boss.maxHp;
+  boss.phase = 1;
+  boss.defeated = false;
+  boss.tentacles = [];
+  boss.orbs = [];
+  for(let i=0;i<6;i++){
+    boss.tentacles.push({
+      angle: (i/6)*Math.PI + Math.PI,
+      len: 80 + Math.random()*60,
+      phase: Math.random()*Math.PI*2,
+      active: true,
+    });
+  }
+  document.getElementById('bossHPBar').style.display = 'block';
+  showMessage('A RAINHA RUBRA DESPERTA');
+}
+
+function spawnParticle(x,y,vx,vy,life,r,g,b,size=3){
+  particles.push({x,y,vx,vy,life,maxLife:life,r,g,b,size});
+}
+function spawnBlood(x,y,count=8){
+  for(let i=0;i<count;i++){
+    const a=Math.random()*Math.PI*2;
+    const s=1+Math.random()*3;
+    spawnParticle(x,y,Math.cos(a)*s,Math.sin(a)*s,20+Math.random()*20,200,20,0,2+Math.random()*3);
+  }
+}
+function spawnCyanBurst(x,y){
+  for(let i=0;i<12;i++){
+    const a=(i/12)*Math.PI*2;
+    spawnParticle(x,y,Math.cos(a)*2.5,Math.sin(a)*2.5,25,0,230,200,3);
+  }
+}
+
+const keys = {};
+const justPressed = {};
+window.addEventListener('keydown', e=>{
+  if(!keys[e.code]){ justPressed[e.code]=true; }
+  keys[e.code]=true;
+  e.preventDefault();
+});
+window.addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+function clearJustPressed(){ for(let k in justPressed) delete justPressed[k]; }
+
+function rectOverlap(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+function resolvePlayer(){
+  player.onGround = false;
+  const pw = player.w * player.squishX;
+  const ph = player.h * player.squishY;
+  const px = player.x - pw/2;
+  const py = player.y - ph;
+
+  for(const p of platforms){
+    if(p.type !== 'solid') continue;
+    if(px < p.x+p.w && px+pw > p.x && py < p.y+p.h && py+ph > p.y){
+      const ol = px+pw - p.x;
+      const or_ = p.x+p.w - px;
+      const ot = py+ph - p.y;
+      const ob = p.y+p.h - py;
+      const minH = Math.min(ol,or_);
+      const minV = Math.min(ot,ob);
+      if(minV < minH){
+        if(ot < ob){
+          player.y = p.y;
+          player.vy = 0;
+          player.onGround = true;
+          player.jumpsLeft = 2;
+        } else {
+          player.y -= ob;
+          if(player.vy < 0) player.vy = 0;
+        }
+      } else {
+        if(ol < or_) player.x += ol;
+        else player.x -= or_;
+        player.vx = 0;
+      }
+    }
+  }
+
+  for(const w of webs){
+    if(w.active){
+      const wy = w.y;
+      if(px < w.x+w.w && px+pw > w.x){
+        if(py+ph > wy && py+ph < wy+20 && player.vy >= 0){
+          player.y = wy;
+          player.vy = 0;
+          player.onGround = true;
+          player.jumpsLeft = 2;
+        }
+      }
+    }
+  }
+
+  for(const d of doors){
+    if(!d.open){
+      if(px < d.x+d.w && px+pw > d.x && py < d.y+d.h && py+ph > d.y){
+        const ol = px+pw - d.x;
+        const or_ = d.x+d.w - px;
+        if(ol < or_) player.x += ol;
+        else player.x -= or_;
+        player.vx = 0;
+      }
+    }
+  }
+}
+
+function updateCamera(){
+  const tx = player.x - W/2;
+  const ty = player.y - H/2 - 60;
+  camera.x += (tx - camera.x) * 0.1;
+  camera.y += (ty - camera.y) * 0.1;
+  camera.x = Math.max(0, Math.min(WORLD_W - W, camera.x));
+  camera.y = Math.max(0, Math.min(H*0.5, camera.y));
+}
+
+function showMessage(txt, duration=180){
+  const el = document.getElementById('message');
+  el.textContent = txt;
+  el.style.opacity = '1';
+  msgTimer = duration;
+}
+
+const GRAVITY = 0.5;
+const JUMP_FORCE = -10;
+const WALK_SPD = 3.5;
+
+function updatePlayer(){
+  if(player.dead) return;
+
+  let moving = false;
+  if(keys['ArrowLeft'] || keys['KeyA']){
+    player.vx = -WALK_SPD;
+    player.facingRight = false;
+    moving = true;
+  } else if(keys['ArrowRight'] || keys['KeyD']){
+    player.vx = WALK_SPD;
+    player.facingRight = true;
+    moving = true;
+  } else {
+    player.vx *= 0.7;
+  }
+
+  if((justPressed['Space'] || justPressed['ArrowUp'] || justPressed['KeyW']) && player.jumpsLeft > 0){
+    player.vy = JUMP_FORCE * (player.jumpsLeft === 1 ? 0.85 : 1);
+    player.jumpsLeft--;
+    player.squishX = 0.7; player.squishY = 1.3;
+    spawnCyanBurst(player.x, player.y);
+  }
+
+  player.vy += GRAVITY;
+  if(player.vy > 14) player.vy = 14;
+
+  player.x += player.vx;
+  player.y += player.vy;
+
+  resolvePlayer();
+
+  if(player.onGround && player.vy === 0 && player.squishY > 1){
+    player.squishX = 1.3; player.squishY = 0.7;
+  }
+
+  player.squishX += (1 - player.squishX) * 0.2;
+  player.squishY += (1 - player.squishY) * 0.2;
+
+  if(moving && player.onGround) player.anim += 0.15;
+
+  player.x = Math.max(30, Math.min(WORLD_W - 30, player.x));
+  if(player.y > H + 100){ takeDamage(99); return; }
+
+  if(player.invincible > 0) player.invincible--;
+
+  for(let i=1;i<=4;i++){
+    if(justPressed['Digit'+i]) player.activeInsect = i-1;
+  }
+
+  if(justPressed['KeyZ']){
+    useInsect();
+  }
+
+  for(const ins of insects){
+    if(!ins.found){
+      if(Math.abs(player.x - ins.x - 12) < 30 && Math.abs(player.y - ins.y - 12) < 30){
+        ins.found = true;
+        player.insects[ins.type] = true;
+        player.activeInsect = ins.type;
+        document.getElementById('slot-'+ins.id).classList.add('found');
+        showMessage(ins.label + ' — ' + ins.desc, 240);
+        spawnCyanBurst(ins.x+12, ins.y+12);
+      }
+    }
+  }
+
+  for(const c of collectibles){
+    if(!c.found){
+      if(Math.abs(player.x - c.x) < 24 && Math.abs(player.y - c.y) < 24){
+        c.found = true;
+        collectCount++;
+        document.getElementById('collectCount').textContent = collectCount;
+        showMessage(c.text, 200);
+        spawnParticle(c.x,c.y,0,-1,40,200,150,50,4);
+      }
+    }
+  }
+
+  if(player.invincible === 0){
+    for(const h of hazards){
+      const pr = {x:player.x-player.w/2, y:player.y-player.h, w:player.w, h:player.h};
+      if(rectOverlap(pr, h)){
+        takeDamage(1);
+      }
+    }
+  }
+
+  if(boss.active && !boss.defeated){
+    for(const orb of boss.orbs){
+      if(!orb.hit && player.invincible===0){
+        const pr = {x:player.x-10,y:player.y-20,w:20,h:20};
+        if(rectOverlap(pr,{x:orb.x-8,y:orb.y-8,w:16,h:16})){
+          takeDamage(1);
+          orb.hit = true;
+        }
+      }
+    }
+  }
+
+  if(player.glowActive){
+    player.glowTimer--;
+    if(player.glowTimer<=0){ player.glowActive=false; }
+  }
+  if(player.spiderActive){
+    player.spiderTimer--;
+    if(player.spiderTimer<=0){ player.spiderActive=false; for(let w of webs) w.active=false; }
+  }
+
+  ['beetle','larva','spider','glow'].forEach((id,i)=>{
+    const el = document.getElementById('slot-'+id);
+    if(player.insects[i]){
+      if(i===player.activeInsect) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+}
+
+function takeDamage(amt){
+  if(player.invincible>0 || player.dead) return;
+  player.hp -= amt;
+  player.invincible = 60;
+  player.squishX = 1.4; player.squishY = 0.6;
+  spawnBlood(player.x, player.y-10, 6);
+  camera.x += (Math.random()-0.5)*20;
+  camera.y += (Math.random()-0.5)*10;
+  if(player.hp<=0){
+    player.dead = true;
+    setTimeout(()=>{
+      document.getElementById('deathScreen').style.display='flex';
+    }, 800);
+  }
+}
+
+function useInsect(){
+  const t = player.activeInsect;
+  if(!player.insects[t]) return;
+
+  if(t===0){
+    for(const btn of buttons){
+      if(Math.abs(player.x - btn.x - 10) < 50 && Math.abs(player.y - btn.y - 5) < 60){
+        if(!btn.pressed){
+          btn.pressed = true;
+          const door = doors.find(d=>d.id===btn.doorId);
+          if(door) door.open = true;
+          spawnParticle(btn.x+10, btn.y, 0,-2, 30, 255,100,0, 5);
+          showMessage('BESOURO ativa o mecanismo!');
+        }
+        return;
+      }
+    }
+    showMessage('Nenhum mecanismo por perto...');
+  }
+  if(t===1){
+    player.glowActive = true;
+    player.glowTimer = 300;
+    showMessage('LARVA ilumina os arredores!');
+  }
+  if(t===2){
+    for(let i=0;i<3;i++){
+      const wx = player.x - 40 + i*40;
+      webs.push({x:wx,y:player.y+10,w:40,h:8,active:true,life:400});
+    }
+    player.spiderActive = true;
+    player.spiderTimer = 400;
+    showMessage('ARANHA tece uma ponte de teia!');
+  }
+  if(t===3){
+    player.glowActive = true;
+    player.glowTimer = 200;
+    if(boss.active && !boss.defeated){
+      if(boss.vulnerable){
+        boss.hp -= 8;
+        spawnBlood(boss.x+boss.w/2, boss.y+boss.h/2,12);
+        boss.shakeTimer = 20;
+        showMessage('VAGA-LUME atinge o núcleo!');
+        updateBossHp();
+        if(boss.hp<=0){ defeatBoss(); }
+      } else {
+        showMessage('O núcleo não está exposto...');
+      }
+    } else {
+      showMessage('VAGA-LUME pulsa com energia!');
+    }
+  }
+}
+
+function updateBossHp(){
+  const pct = Math.max(0, boss.hp / boss.maxHp);
+  document.getElementById('bossHPInner').style.width = (pct*100)+'%';
+
+  if(boss.hp <= boss.phaseHp[1] && boss.phase===1) enterBossPhase(2);
+  else if(boss.hp <= boss.phaseHp[2] && boss.phase===2) enterBossPhase(3);
+  else if(boss.hp <= boss.phaseHp[3] && boss.phase===3) enterBossPhase(4);
+}
+
+function enterBossPhase(p){
+  boss.phase = p;
+  boss.shakeTimer = 40;
+  spawnBlood(boss.x+boss.w/2, boss.y+boss.h/2, 20);
+  const msgs = ['','FASE 2: ELA SE FURECE!','FASE 3: FORMA VERDADEIRA EMERGE!','FASE FINAL: USE TUDO QUE APRENDEU!'];
+  showMessage(msgs[p]||'', 200);
+  boss.eyeCount = p + 1;
+  if(p===4){
+    boss.vulnerable = true;
+    boss.vulnerableTimer = 9999;
+  }
+}
+
+function defeatBoss(){
+  boss.defeated = true;
+  boss.active = false;
+  boss.deadAnim = 0;
+  document.getElementById('bossHPBar').style.display='none';
+  for(let i=0;i<50;i++){
+    setTimeout(()=>{
+      spawnBlood(boss.x+Math.random()*boss.w, boss.y+Math.random()*boss.h, 6);
+    }, i*40);
+  }
+  setTimeout(()=>{
+    gameState='win';
+    document.getElementById('winScreen').style.display='flex';
+  }, 2500);
+}
+
+function updateBoss(){
+  if(!boss.active || boss.defeated) return;
+  boss.attackTimer++;
+  boss.spawnTimer++;
+
+  if(boss.phase < 4){
+    if(boss.vulnerableTimer > 0){
+      boss.vulnerableTimer--;
+      if(boss.vulnerableTimer<=0) boss.vulnerable=false;
+    }
+    if(!boss.vulnerable && boss.attackTimer % 160 === 0){
+      boss.vulnerable = true;
+      boss.vulnerableTimer = 60;
+    }
+  }
+
+  const orbRate = [0,90,70,50,35][boss.phase] || 90;
+  if(boss.spawnTimer % orbRate === 0){
+    const bx = boss.x + boss.w/2;
+    const by = boss.y + boss.h;
+    const angle = Math.atan2(player.y - by, player.x - bx);
+    const spd = 2 + boss.phase * 0.5;
+    const spread = boss.phase >= 3 ? 5 : (boss.phase>=2?3:1);
+    for(let i=0;i<spread;i++){
+      const a = angle + (i - (spread-1)/2) * 0.3;
+      boss.orbs.push({
+        x:bx, y:by,
+        vx: Math.cos(a)*spd,
+        vy: Math.sin(a)*spd,
+        hit: false, life: 180,
+      });
+    }
+  }
+
+  boss.orbs = boss.orbs.filter(o=>{
+    o.x += o.vx; o.y += o.vy;
+    o.life--;
+    if(o.y > 480){ o.vy *= -0.7; o.y=480; }
+    return o.life>0 && !o.hit;
+  });
+
+  for(const t of boss.tentacles){
+    t.phase += 0.04;
+    if(!t.active && Math.random()<0.01) t.active=true;
+    if(t.active && Math.random()<0.005) t.active=false;
+  }
+
+  if(player.invincible===0){
+    for(const t of boss.tentacles){
+      if(!t.active) continue;
+      const bx = boss.x+boss.w/2;
+      const by = boss.y+boss.h;
+      const tx = bx + Math.cos(t.angle+t.phase*0.3)*t.len;
+      const ty = by + Math.sin(t.angle+t.phase*0.3)*t.len;
+      if(Math.hypot(player.x-tx, player.y-ty) < 30){
+        takeDamage(1);
+      }
+    }
+  }
+
+  if(boss.shakeTimer>0) boss.shakeTimer--;
+}
+
+function drawTitle(){
+  const tc = document.getElementById('titleBg');
+  const tctx = tc.getContext('2d');
+  tctx.fillStyle='#0a0002';
+  tctx.fillRect(0,0,W,H);
+
+  const t = frameCount*0.02;
+  for(let i=0;i<12;i++){
+    const x = (i/(12))*W + Math.sin(t+i)*30;
+    const y = 30 + Math.sin(t*1.3+i*0.5)*20;
+    tctx.beginPath();
+    tctx.moveTo(x,0);
+    tctx.quadraticCurveTo(x+Math.sin(t+i*2)*40, y+80, x+Math.sin(t*0.7+i)*20, y+160);
+    tctx.strokeStyle=`rgba(${100+Math.sin(t+i)*50},${10},${20},0.6)`;
+    tctx.lineWidth=3+Math.sin(t*0.5+i)*2;
+    tctx.stroke();
+  }
+
+  tctx.fillStyle='rgba(255,50,0,0.15)';
+  for(let i=0;i<20;i++){
+    const px=(Math.sin(t*0.3+i*1.3)*0.5+0.5)*W;
+    const py=(Math.sin(t*0.2+i*0.7)*0.5+0.5)*H;
+    tctx.beginPath();
+    tctx.arc(px,py,1+Math.sin(t+i)*1,0,Math.PI*2);
+    tctx.fill();
+  }
+}
+
+function drawBg(){
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#120005');
+  grad.addColorStop(1,'#1a0008');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,W,H);
+
+  const ox = camera.x;
+  const oy = camera.y;
+
+  ctx.save();
+  ctx.globalAlpha=0.15;
+  for(let i=0;i<30;i++){
+    const bx = ((i*233)%WORLD_W - ox*0.3) % W;
+    const by = 50 + (i*97)%350 - oy*0.2;
+    ctx.fillStyle = i%3===0?'#660010':i%3===1?'#440008':'#550014';
+    ctx.beginPath();
+    ctx.ellipse(bx,by,40+i%30,60+i%40,0,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function worldToScreen(x,y){ return {x:x-camera.x, y:y-camera.y}; }
+
+function drawTentacles(){
+  const t = frameCount*0.025;
+  ctx.save();
+  for(const ten of tentacles){
+    const {x:sx, y:sy} = worldToScreen(ten.x, ten.fromCeil?0:H+20);
+    if(sx < -100 || sx > W+100) continue;
+    const phase = ten.phase + t*ten.speed*20;
+    const ex = ten.x + Math.sin(phase)*30;
+    const ey = ten.fromCeil ? ten.len : H - ten.len;
+    const {x:ex2, y:ey2} = worldToScreen(ex, ey);
+
+    const alpha = 0.4 + Math.sin(phase*0.7)*0.2;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.moveTo(sx, ten.fromCeil ? -camera.y : H - camera.y);
+    ctx.quadraticCurveTo(
+      sx + Math.sin(phase+1)*20, (sy + ey2)/2,
+      ex2, ey2
+    );
+    ctx.strokeStyle = `hsl(${350+Math.sin(phase)*10},80%,${25+Math.sin(phase)*10}%)`;
+    ctx.lineWidth = ten.thickness + Math.sin(phase)*1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ex2, ey2, ten.thickness*1.5, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(180,20,40,${alpha})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawPlatforms(){
+  for(const p of platforms){
+    const {x:sx,y:sy} = worldToScreen(p.x,p.y);
+    if(sx+p.w<0 || sx>W || sy+p.h<0 || sy>H) continue;
+
+    if(p.w > 200){
+      const grad = ctx.createLinearGradient(sx,sy,sx,sy+p.h);
+      grad.addColorStop(0,'#5a1020');
+      grad.addColorStop(0.3,'#3d0010');
+      grad.addColorStop(1,'#1a0005');
+      ctx.fillStyle=grad;
+      ctx.fillRect(sx,sy,p.w,p.h);
+      ctx.strokeStyle='rgba(100,0,20,0.3)';
+      ctx.lineWidth=1;
+      for(let i=0;i<p.w;i+=40){
+        ctx.beginPath();
+        ctx.moveTo(sx+i,sy);
+        ctx.lineTo(sx+i+20,sy+p.h);
+        ctx.stroke();
+      }
+    } else {
+      const grad = ctx.createLinearGradient(sx,sy,sx,sy+p.h);
+      grad.addColorStop(0,'#7a2030');
+      grad.addColorStop(1,'#4a0018');
+      ctx.fillStyle=grad;
+      ctx.beginPath();
+      ctx.roundRect(sx,sy,p.w,p.h,4);
+      ctx.fill();
+      ctx.fillStyle='rgba(150,20,50,0.4)';
+      ctx.fillRect(sx,sy,p.w,4);
+    }
+  }
+}
+
+function drawHazards(){
+  for(const h of hazards){
+    const {x:sx,y:sy}=worldToScreen(h.x,h.y);
+    if(sx>W||sx+h.w<0) continue;
+    ctx.fillStyle='#cc1100';
+    const n = Math.floor(h.w/10);
+    for(let i=0;i<n;i++){
+      ctx.beginPath();
+      ctx.moveTo(sx+i*10, sy+h.h);
+      ctx.lineTo(sx+i*10+5, sy);
+      ctx.lineTo(sx+i*10+10, sy+h.h);
+      ctx.fill();
+    }
+  }
+}
+
+function drawDoors(){
+  for(const d of doors){
+    if(d.open) continue;
+    const {x:sx,y:sy}=worldToScreen(d.x,d.y);
+    if(sx>W||sx+d.w<0) continue;
+    const pulse = 0.6 + Math.sin(frameCount*0.05)*0.2;
+    ctx.fillStyle=`rgba(80,0,20,${pulse})`;
+    ctx.fillRect(sx,sy,d.w,d.h);
+    for(let i=0;i<d.h;i+=15){
+      ctx.strokeStyle=`rgba(150,10,40,0.5)`;
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(sx,sy+i);
+      ctx.lineTo(sx+d.w,sy+i+Math.sin(i*0.3+frameCount*0.03)*4);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawButtons(){
+  for(const btn of buttons){
+    const {x:sx,y:sy}=worldToScreen(btn.x,btn.y);
+    if(sx>W||sx+btn.w<0) continue;
+    ctx.fillStyle = btn.pressed ? '#ff8800' : '#ff2200';
+    ctx.fillRect(sx,sy,btn.w,btn.h);
+    ctx.strokeStyle = btn.pressed ? '#ffcc00' : '#cc0000';
+    ctx.lineWidth=1;
+    ctx.strokeRect(sx,sy,btn.w,btn.h);
+  }
+}
+
+function drawWebs(){
+  for(const w of webs){
+    if(!w.active) continue;
+    const {x:sx,y:sy}=worldToScreen(w.x,w.y);
+    ctx.fillStyle='rgba(200,220,255,0.5)';
+    ctx.fillRect(sx,sy,w.w,w.h);
+  }
+}
+
+function drawInsects(){
+  for(const ins of insects){
+    if(ins.found) continue;
+    const {x:sx,y:sy}=worldToScreen(ins.x,ins.y);
+    if(sx>W||sx<-30) continue;
+    const bob = Math.sin(frameCount*0.06+ins.x)*4;
+    const glow = 0.5+Math.sin(frameCount*0.08)*0.3;
+
+    ctx.save();
+    ctx.globalAlpha=glow*0.4;
+    ctx.beginPath();
+    ctx.arc(sx+12,sy+12+bob,20,0,Math.PI*2);
+    const colors=['#ff8800','#88ff00','#aaaaff','#ffffaa'];
+    const rg=ctx.createRadialGradient(sx+12,sy+12+bob,0,sx+12,sy+12+bob,20);
+    rg.addColorStop(0,colors[ins.type]);
+    rg.addColorStop(1,'transparent');
+    ctx.fillStyle=rg;
+    ctx.fill();
+    ctx.restore();
+
+    ctx.font='22px serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(['🪲','🐛','🕷️','✨'][ins.type], sx+12, sy+12+bob);
+  }
+  ctx.textAlign='left';
+  ctx.textBaseline='alphabetic';
+}
+
+function drawCollectibles(){
+  for(const c of collectibles){
+    if(c.found) continue;
+    const {x:sx,y:sy}=worldToScreen(c.x,c.y);
+    if(sx>W||sx<-20) continue;
+    const pulse = 0.5+Math.sin(frameCount*0.07+c.x*0.01)*0.3;
+    ctx.save();
+    ctx.globalAlpha=pulse;
+    ctx.fillStyle='#ffcc66';
+    ctx.shadowBlur=10;
+    ctx.shadowColor='#ff9900';
+    ctx.beginPath();
+    ctx.moveTo(sx,sy-8);
+    ctx.lineTo(sx+8,sy);
+    ctx.lineTo(sx,sy+8);
+    ctx.lineTo(sx-8,sy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawPlayer(){
+  if(player.dead) return;
+  const {x:sx,y:sy}=worldToScreen(player.x, player.y);
+  const w = player.w * player.squishX;
+  const h = player.h * player.squishY;
+
+  if(player.invincible > 0 && Math.floor(frameCount/3)%2===0) return;
+
+  if(player.glowActive){
+    const rg=ctx.createRadialGradient(sx,sy-h/2,0,sx,sy-h/2,60);
+    rg.addColorStop(0,'rgba(0,255,200,0.15)');
+    rg.addColorStop(1,'transparent');
+    ctx.fillStyle=rg;
+    ctx.beginPath();
+    ctx.arc(sx,sy-h/2,60,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.save();
+  ctx.translate(sx, sy-h/2);
+
+  if(player.vx!==0 && player.onGround){
+    ctx.rotate(Math.sin(player.anim)*0.12 * (player.facingRight?1:-1));
+  }
+
+  if(!player.onGround){
+    const stretch = player.vy < 0 ? 0.1 : -0.05;
+    ctx.transform(1+stretch*0.5,0,0,1-stretch,0,0);
+  }
+
+  ctx.save();
+  ctx.globalAlpha=0.3;
+  ctx.fillStyle='#000';
+  ctx.beginPath();
+  ctx.ellipse(0, h/2+2, w*0.5, 4, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  const bw=w, bh=h;
+  const grad=ctx.createLinearGradient(-bw/2,-bh/2,bw/2,bh/2);
+  grad.addColorStop(0,'#00ffee');
+  grad.addColorStop(0.5,'#00ccbb');
+  grad.addColorStop(1,'#007a70');
+  ctx.fillStyle=grad;
+  ctx.shadowBlur=12;
+  ctx.shadowColor='rgba(0,255,220,0.6)';
+  ctx.beginPath();
+  ctx.roundRect(-bw/2,-bh/2,bw,bh,3);
+  ctx.fill();
+
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  ctx.roundRect(-bw/2,-bh/2,bw*0.6,bh*0.35,2);
+  ctx.fill();
+
+  const eyeW=4, eyeH=3;
+  const eyeY=-2;
+  ctx.fillStyle='#003330';
+  ctx.shadowBlur=0;
+  if(boss.active && !boss.defeated){
+    ctx.fillRect(-7,eyeY-1,eyeW,eyeH+1);
+    ctx.fillRect(3,eyeY-1,eyeW,eyeH+1);
+    ctx.strokeStyle='#003330';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(-8,eyeY-3);ctx.lineTo(-3,eyeY-5);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(7,eyeY-3);ctx.lineTo(2,eyeY-5);ctx.stroke();
+  } else {
+    ctx.fillRect(-7,eyeY,eyeW,eyeH);
+    ctx.fillRect(3,eyeY,eyeW,eyeH);
+  }
+
+  ctx.restore();
+}
+
+function drawBoss(){
+  if(!boss.active && !boss.defeated) return;
+  const bx = boss.x - camera.x + (boss.shakeTimer>0?(Math.random()-0.5)*8:0);
+  const by = boss.y - camera.y;
+  const bw = boss.w, bh = boss.h;
+  const t = frameCount*0.03;
+
+  const aura=ctx.createRadialGradient(bx+bw/2,by+bh/2,0,bx+bw/2,by+bh/2,bw);
+  aura.addColorStop(0,'rgba(180,0,0,0.2)');
+  aura.addColorStop(1,'transparent');
+  ctx.fillStyle=aura;
+  ctx.beginPath();
+  ctx.arc(bx+bw/2,by+bh/2,bw,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.globalAlpha=0.3;
+  ctx.strokeStyle='#440000';
+  ctx.lineWidth=3;
+  for(let w=0;w<2;w++){
+    const wx=w===0?bx-60:bx+bw+60;
+    const wy=by+bh/2;
+    for(let i=0;i<5;i++){
+      ctx.beginPath();
+      ctx.moveTo(wx,wy);
+      const ex=wx+(w===0?-1:1)*(60+i*20)*Math.cos(i*0.4+t*0.3);
+      const ey=wy+i*30*Math.sin(i*0.3);
+      ctx.lineTo(ex,ey);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  const segments = boss.phase >= 3 ? 5 : 3;
+  for(let s=0;s<segments;s++){
+    const sy2=by+20+s*50;
+    const sx2=bx+20+Math.sin(t+s)*10;
+    const sw=bw-40+Math.sin(t*0.7+s)*20;
+    const sh=40+Math.sin(t+s*0.5)*5;
+
+    const grad=ctx.createLinearGradient(sx2,sy2,sx2+sw,sy2+sh);
+    grad.addColorStop(0,`hsl(${350-s*10},80%,${20+s*3}%)`);
+    grad.addColorStop(1,`hsl(${340-s*10},70%,${12+s*2}%)`);
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.ellipse(sx2+sw/2,sy2+sh/2,sw/2,sh/2,0,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  const eyePositions=[
+    [{x:bx+bw*0.3,y:by+bh*0.3},{x:bx+bw*0.7,y:by+bh*0.3}],
+    [{x:bx+bw*0.2,y:by+bh*0.2},{x:bx+bw*0.5,y:by+bh*0.15},{x:bx+bw*0.8,y:by+bh*0.2}],
+    [{x:bx+bw*0.1,y:by+bh*0.1},{x:bx+bw*0.4,y:by+bh*0.05},{x:bx+bw*0.6,y:by+bh*0.05},{x:bx+bw*0.9,y:by+bh*0.1},{x:bx+bw*0.5,y:by+bh*0.35}],
+  ];
+  const eyes=eyePositions[Math.min(boss.phase-1,2)];
+  for(const e of eyes){
+    const pupilX=e.x+(player.x-camera.x-e.x)*0.1;
+    const pupilY=e.y+(player.y-camera.y-e.y)*0.1;
+    ctx.fillStyle='#ffcccc';
+    ctx.beginPath();
+    ctx.ellipse(e.x,e.y,14,11,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle='#cc2200';
+    ctx.beginPath();
+    ctx.arc(pupilX,pupilY,7,0,Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.beginPath();
+    ctx.arc(pupilX,pupilY,4,0,Math.PI*2);
+    ctx.fill();
+    ctx.save();
+    ctx.globalAlpha=0.3;
+    const eg=ctx.createRadialGradient(e.x,e.y,0,e.x,e.y,20);
+    eg.addColorStop(0,'rgba(255,50,0,0.5)');
+    eg.addColorStop(1,'transparent');
+    ctx.fillStyle=eg;
+    ctx.beginPath();
+    ctx.arc(e.x,e.y,20,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  if(boss.vulnerable){
+    const cx=bx+bw/2, cy=by+bh*0.6;
+    const pulse=0.5+Math.sin(t*3)*0.3;
+    ctx.save();
+    ctx.globalAlpha=pulse;
+    const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,40);
+    cg.addColorStop(0,'rgba(255,255,100,0.9)');
+    cg.addColorStop(0.4,'rgba(255,150,0,0.6)');
+    cg.addColorStop(1,'transparent');
+    ctx.fillStyle=cg;
+    ctx.beginPath();
+    ctx.arc(cx,cy,40,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle='rgba(255,255,150,0.8)';
+    ctx.font='11px Courier New';
+    ctx.textAlign='center';
+    ctx.fillText('Z — VAGA-LUME!', cx, cy+55);
+    ctx.textAlign='left';
+  }
+
+  for(const ten of boss.tentacles){
+    if(!ten.active) continue;
+    const tx=bx+bw/2;
+    const ty=by+bh;
+    const ex=tx+Math.cos(ten.angle+ten.phase*0.3)*ten.len;
+    const ey=ty+Math.sin(ten.angle+ten.phase*0.3)*ten.len;
+    ctx.beginPath();
+    ctx.moveTo(tx,ty);
+    ctx.quadraticCurveTo(
+      tx+Math.cos(ten.angle)*ten.len*0.5+Math.sin(ten.phase)*20,
+      ty+Math.sin(ten.angle)*ten.len*0.5,
+      ex,ey
+    );
+    ctx.strokeStyle=`hsl(${350+Math.sin(ten.phase)*20},80%,25%)`;
+    ctx.lineWidth=6+Math.sin(ten.phase)*2;
+    ctx.stroke();
+    ctx.fillStyle='#ff2200';
+    ctx.beginPath();
+    ctx.arc(ex,ey,8,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  for(const o of boss.orbs){
+    const ox=o.x-camera.x, oy=o.y-camera.y;
+    const og=ctx.createRadialGradient(ox,oy,0,ox,oy,10);
+    og.addColorStop(0,'rgba(255,50,0,0.9)');
+    og.addColorStop(1,'transparent');
+    ctx.fillStyle=og;
+    ctx.beginPath();
+    ctx.arc(ox,oy,10,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  if(boss.phase <= 3){
+    ctx.fillStyle='rgba(255,100,50,0.6)';
+    ctx.font='10px Courier New';
+    ctx.fillText(`FASE ${boss.phase}`, bx+bw/2-20, by-10);
+  }
+}
+
+function drawParticles(){
+  for(const p of particles){
+    const a=p.life/p.maxLife;
+    ctx.globalAlpha=a;
+    ctx.fillStyle=`rgb(${p.r},${p.g},${p.b})`;
+    const sx=p.x-camera.x, sy=p.y-camera.y;
+    ctx.beginPath();
+    ctx.arc(sx,sy,p.size*a,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+function updateParticles(){
+  for(const p of particles){
+    p.x+=p.vx; p.y+=p.vy;
+    p.vy+=0.1;
+    p.life--;
+  }
+  particles=particles.filter(p=>p.life>0);
+}
+
+let bgPulses = Array.from({length:20},(_,i)=>({
+  x: Math.random()*WORLD_W, y:100+Math.random()*350,
+  r: 20+Math.random()*60,
+  phase: Math.random()*Math.PI*2,
+  speed: 0.01+Math.random()*0.02,
+  hue: 340+Math.random()*30,
+}));
+
+function drawAmbientPulses(){
+  for(const bp of bgPulses){
+    const sx=bp.x-camera.x;
+    if(sx<-80||sx>W+80) continue;
+    const sy=bp.y-camera.y;
+    const pulse=0.05+Math.sin(frameCount*bp.speed+bp.phase)*0.04;
+    ctx.save();
+    ctx.globalAlpha=pulse;
+    const rg=ctx.createRadialGradient(sx,sy,0,sx,sy,bp.r);
+    rg.addColorStop(0,`hsl(${bp.hue},80%,40%)`);
+    rg.addColorStop(1,'transparent');
+    ctx.fillStyle=rg;
+    ctx.beginPath();
+    ctx.arc(sx,sy,bp.r,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawZoneLabel(){
+  const zones=[
+    {start:0,end:2400,name:'CÂMARA ANTERIOR'},
+    {start:2400,end:4800,name:'COLMEIA PROFUNDA'},
+    {start:4800,end:7200,name:'O CORAÇÃO'},
+  ];
+  const px=player.x;
+  for(const z of zones){
+    if(px>=z.start&&px<z.end){
+      ctx.save();
+      ctx.globalAlpha=0.25;
+      ctx.fillStyle='#aa3322';
+      ctx.font='10px Courier New';
+      ctx.letterSpacing='3px';
+      ctx.fillText(z.name, 16, H-20);
+      ctx.restore();
+      break;
+    }
+  }
+}
+
+let bossTriggered = false;
+function checkBossTrigger(){
+  if(!bossTriggered && player.x > 6500 && !boss.active){
+    bossTriggered = true;
+    gameState = 'boss';
+    initBoss();
+  }
+}
+
+function gameLoop(){
+  frameCount++;
+
+  if(gameState==='title'){
+    drawTitle();
+    clearJustPressed();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  updatePlayer();
+  updateBoss();
+  updateParticles();
+  if(gameState==='playing') checkBossTrigger();
+
+  for(const w of webs){ if(w.life>0) w.life--; else w.active=false; }
+
+  if(msgTimer>0){
+    msgTimer--;
+    if(msgTimer===0) document.getElementById('message').style.opacity='0';
+  }
+
+  updateCamera();
+
+  ctx.clearRect(0,0,W,H);
+  drawBg();
+  drawAmbientPulses();
+  drawTentacles();
+  drawPlatforms();
+  drawHazards();
+  drawDoors();
+  drawButtons();
+  drawWebs();
+  drawInsects();
+  drawCollectibles();
+  drawParticles();
+  drawBoss();
+  drawPlayer();
+  drawZoneLabel();
+
+  clearJustPressed();
+  requestAnimationFrame(gameLoop);
+}
+
+function initGame(){
+  buildWorld();
+  collectCount = 0;
+  document.getElementById('collectCount').textContent='0';
+  player = {
+    x:120, y:460, w:22, h:22,
+    vx:0, vy:0,
+    onGround:false, jumpsLeft:2,
+    facingRight:true,
+    anim:0, squishX:1, squishY:1,
+    activeInsect:0,
+    insects:[false,false,false,false],
+    glowActive:false, glowTimer:0,
+    spiderActive:false, spiderTimer:0,
+    beetleActive:false,
+    hp:3, maxHp:3,
+    invincible:0,
+    dead:false,
+  };
+  camera={x:0,y:0};
+  boss.active=false; boss.defeated=false; boss.deadAnim=0;
+  bossTriggered=false;
+  gameState='playing';
+  particles=[];
+  webs=[];
+  document.getElementById('deathScreen').style.display='none';
+  document.getElementById('winScreen').style.display='none';
+  document.getElementById('bossHPBar').style.display='none';
+  ['beetle','larva','spider','glow'].forEach(id=>{
+    const el=document.getElementById('slot-'+id);
+    el.classList.remove('found','active');
+  });
+  showMessage('Um mundo vivo te observa... explore com cuidado.', 220);
+}
+
+document.getElementById('titleScreen').addEventListener('click',()=>{
+  document.getElementById('titleScreen').style.display='none';
+  initGame();
+});
+
+document.getElementById('deathScreen').addEventListener('click',()=>initGame());
+document.getElementById('winScreen').addEventListener('click',()=>{
+  document.getElementById('winScreen').style.display='none';
+  document.getElementById('titleScreen').style.display='flex';
+  gameState='title';
+});
+
+gameLoop();
+</script>
+</body>
+</html>
